@@ -27,6 +27,20 @@ std::ostream& operator<<(std::ostream& os, const Grafo::Aresta* obj) {
 	return os;
 }
 
+std::ostream& operator<<(std::ostream& os, const Grafo::BancoDeArestas& obj) {
+
+	os << "[ ";
+
+	for (auto& x : obj) {
+		os << x.second << "\t";
+	}
+
+	os << " ]";
+
+	return os;
+
+}
+
 std::ostream& operator<<(std::ostream& os, const Grafo::MapaNomeIndice& obj) {
 
 	os << "ID\tNome" << std::endl;
@@ -151,10 +165,6 @@ bool Grafo::Inserir(const Aresta& A) {
 	return true;
 }
 
-Grafo::BancoDeArestas::iterator Grafo::Expandir(const Indice& I) {
-	return _A.find(I);
-}
-
 Matriz Grafo::MatrizRepresentativa() {
 
 	const Indice n = QuantidadeNos();
@@ -220,7 +230,7 @@ Grafo::Grafo(const bool& Direcionado, const bool& ComCustos, const std::string& 
 				cerr << "Nao existe no com nome " << NomeOrigem << "." << " Verifique o arquivo " << NomeArquivo << std::endl;
 			}
 			else {
-				Aresta* Temporaria = new Aresta(IDOrigem, ID(NomeDestino), PesoLido);
+				Aresta* Temporaria = new Aresta(getLink(IDOrigem), getLink(ID(NomeDestino)), PesoLido);
 				Inserir(Temporaria);
 				cout << "Lida " << Temporaria << std::endl;
 			}
@@ -230,5 +240,110 @@ Grafo::Grafo(const bool& Direcionado, const bool& ComCustos, const std::string& 
 		Entrada.close();
 
 		MatrizRepresentativa().Imprimir(std::cout);
+
+}
+
+Grafo::BancoDeArestas Grafo::Expandir(const Grafo::Indice& I) {
+
+	BancoDeArestas Aux;
+	for (BancoDeArestas::iterator i = _A.begin(); i != _A.end(); ++i) {
+		if ((*i).first == I) {
+			Aux.insert(BancoDeArestas::value_type(I, (*i).second));
+		}
+	}
+
+	std::cout << "";
+
+	return Aux;
+
+}
+
+Grafo::DLSResultado Grafo::DLS(
+	const Link& NoAtual,
+	const Link& Objetivo,
+	const Indice& Limite,
+	MapaNos& NosFronteira,
+	MapaNos& NosVisitados,
+	const Indice& ProfundidadeAtual
+	) {
+	
+	char Tabulacao = '\t';
+	std::string TabulacaoAtual = "";
+
+	for (Indice i = 0; i < ProfundidadeAtual-1; ++i) {
+		TabulacaoAtual += Tabulacao;
+	}
+
+	bool OcorreuCorte = false;
+
+	if (NoAtual == Objetivo) {
+		std::cout << TabulacaoAtual << "Chegamos ao " << NoAtual << ", nosso objetivo!" << std::endl;
+		return Solucao;
+	}
+	else if (ProfundidadeAtual >= Limite) {
+		std::cerr << TabulacaoAtual << "Atingido o limite de profundidade." << std::endl;
+		return Corte;
+	}
+	else {
+
+		// Estou no nó atual. Vou expandí-lo.
+		std::cout << TabulacaoAtual << "Expandindo " << NoAtual << "..." << std::endl;
+
+		BancoDeArestas Sucessores = Expandir(NoAtual->ID());
+
+		std::cout << TabulacaoAtual << "Os sucessores sao " << Sucessores << std::endl;
+
+		// Uma vez expandido, adiciono a lista de nos visitados. Nos visitados nao precisam ser expandidos de novo.
+		NosVisitados[NoAtual->ID()] = getLink(NoAtual->ID());
+		std::cout << TabulacaoAtual << getLink(NoAtual->ID()) << " adicionado a lista de nos visitados. " << NosVisitados << std::endl;
+
+		for (auto & i : Sucessores) {
+
+			std::cout << Tabulacao << "Atualmente na " << i.second << std::endl;
+
+			Link Destino = i.second.Destino();
+
+			if (Destino->ID() == NoAtual->ID()) {
+				Destino = i.second.Origem();
+			}
+
+			// Cada no resultado da expansao deve ser adicionado a lista de nos fronteira.
+			NosFronteira[Destino->ID()] = getLink(Destino->ID());
+			std::cout << TabulacaoAtual << getLink(Destino->ID()) << " adicionado a lista de nos fronteira. " << NosFronteira << std::endl;
+
+			std::cout << TabulacaoAtual << "Prestes a realizar busca recursiva em " << getLink(Destino->ID()) << "(profundidade " << ProfundidadeAtual << " de " << Limite << ")" << std::endl << std::endl;
+			system("pause"); std::cout << std::endl;
+
+			if (!NosVisitados.count(NoAtual->ID())) {
+				// Se meu no ainda nao foi visitado, devo visita-lo usando DLS
+				DLSResultado Resultado = DLS(Destino, Objetivo, Limite, NosFronteira, NosVisitados, ProfundidadeAtual + 1);
+
+				// Se retornou cortado, informo que ocorreu corte.
+				if (Resultado == Corte) {
+					std::cout << TabulacaoAtual << "Ocorreu corte durante a busca." << std::endl;
+					return Corte;
+				}
+				else if (Resultado == Falha) {
+					std::cerr << TabulacaoAtual << Objetivo << " (ainda) nao encontrado" << std::endl;
+					return Falha;
+				}
+				else if (Resultado == Solucao) {
+					std::cout << TabulacaoAtual << "Encontrado objetivo" << std::endl;
+					return Solucao;
+				} // end if Resultado
+
+			}
+
+		} // end for
+
+	} // end if principal
+}
+
+Grafo::DLSResultado Grafo::DLS(const Link& NoAtual, const Link& Objetivo, const Indice& Limite) {
+
+	MapaNos NosFronteira;
+	MapaNos NosVisitados;
+
+	return DLS(NoAtual, Objetivo, Limite, NosFronteira, NosVisitados, 1);
 
 }

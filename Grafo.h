@@ -14,6 +14,7 @@ class Grafo {
 	typedef int TipoPeso;
 	static const int PesoNulo = -1;
 
+
 	public:
 		inline bool Direcionado() const { return _Direcionado; }
 		inline bool ComCustos() const { return _ComCustos; }
@@ -66,20 +67,25 @@ class Grafo {
 
 			inline Link Origem() const { return _Origem; }
 			inline Indice OrigemID() const { return Origem()->ID(); }
+			inline TipoRotulo OrigemNome() const { return Origem()->Nome(); }
 			inline Link Destino() const { return _Destino; }
 			inline Indice DestinoID() const { return Destino()->ID(); }
+			inline TipoRotulo DestinoNome() const { return Destino()->Nome(); }
 			inline TipoPeso Peso() const { return _Peso; }
 
 			virtual std::ostream& Imprimir(std::ostream& o) const {
-				return o << "Aresta (" << OrigemID() << "," << DestinoID() << ") = " << Peso();
+				o << "Aresta (" << OrigemNome() << "," << DestinoNome() << ") = " << Peso();
+				return o;
 			}
 
 	};
 
 	typedef std::multimap<Indice, Aresta> BancoDeArestas;
-
+	BancoDeArestas Expandir(const Indice& I);
 	inline Indice ID(const TipoRotulo& X) { return _M[X]; }
 	inline No getNo(const Indice& X) { return _N[X]; }
+	inline No& getNoRef(const Indice& X) { return _N[X]; }
+	inline Link getLink(const Indice& X) { Link Retorno = &_N[X]; return Retorno; }
 	inline TipoRotulo Nome(const Indice& X) { getNo(X).Nome(); }
 
 	Grafo(const bool& Direcionado = false, const bool& ComCustos = false)
@@ -104,7 +110,25 @@ class Grafo {
 	inline Grafo& operator<<(const Aresta& A) { Inserir(A); return *this; }
 	inline Grafo& operator<<(const Aresta* A) { Inserir(A); return *this; }
 
-	BancoDeArestas::iterator Expandir(const Indice& I);
+	inline BancoDeArestas Expandir(const No& N) { return Expandir(N.ID()); }
+	inline BancoDeArestas Expandir(const Link& L) { return Expandir(L->ID()); }
+
+	typedef enum { Solucao = 1, Falha = 0, Corte = -1, Repetido = 2 } DLSResultado;
+
+	DLSResultado DLS(
+		const Link& NoAtual,
+		const Link& Objetivo,
+		const Indice& Limite,
+		MapaNos& NosFronteira,
+		MapaNos& NosVisitados,
+		const Indice& ProfundidadeAtual = 1
+	);
+
+	DLSResultado DLS(const Link& NoAtual, const Link& Objetivo, const Indice& Limite);
+
+	inline DLSResultado DLS(const TipoRotulo& NoAtual, const TipoRotulo& Objetivo, const Indice& Limite) {
+		return DLS(getLink(ID(NoAtual)), getLink(ID(Objetivo)), Limite);
+	}
 
 	private:
 		const bool _Direcionado;
